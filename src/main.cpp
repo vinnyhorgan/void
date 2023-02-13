@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string>
 
 #include "raylib.h"
 #include "raymath.h"
@@ -6,6 +7,8 @@
 #include "angelscript.h"
 #include "scriptstdstring.h"
 #include "scriptbuilder.h"
+
+#include "api.h"
 
 #define WIDTH 1280
 #define HEIGHT 720
@@ -15,34 +18,25 @@
 
 using namespace std;
 
-void ASprint(string &str)
-{
-    printf("%s\n", str.c_str());
-}
-
-void MessageCallback(const asSMessageInfo *msg, void *param)
+void messageCallback(const asSMessageInfo *msg, void *param)
 {
     const char *type = "ERR ";
 
-    if( msg->type == asMSGTYPE_WARNING )
+    if (msg->type == asMSGTYPE_WARNING)
         type = "WARN";
-    else if( msg->type == asMSGTYPE_INFORMATION )
+    else if (msg->type == asMSGTYPE_INFORMATION)
         type = "INFO";
 
     printf("%s (%d, %d) : %s : %s\n", msg->section, msg->row, msg->col, type, msg->message);
 }
 
-int configureEngine(asIScriptEngine *engine)
+void configureEngine(asIScriptEngine *engine)
 {
-    int r;
-
     RegisterStdString(engine);
 
-    r = engine->RegisterGlobalFunction("void print(string &in)", asFUNCTION(ASprint), asCALL_CDECL);
-    if (r < 0)
-        return r;
-
-    return r;
+    engine->RegisterGlobalFunction("void print(string &in)", asFUNCTION(print), asCALL_CDECL);
+    engine->RegisterGlobalFunction("string toString(float)", asFUNCTION(toString), asCALL_CDECL);
+    engine->RegisterGlobalFunction("void graphicsPrint(string &in, int, int)", asFUNCTION(graphicsPrint), asCALL_CDECL);
 }
 
 int compileScript(asIScriptEngine *engine, string script)
@@ -51,76 +45,49 @@ int compileScript(asIScriptEngine *engine, string script)
 
     CScriptBuilder builder;
 
-    r = builder.StartNewModule(engine, "MainModule");
+    r = builder.StartNewModule(engine, 0);
     if (r < 0)
+    {
+        printf("Failed to start new module.\n");
         return r;
+    }
 
     r = builder.AddSectionFromFile(script.c_str());
     if (r < 0)
+    {
+        printf("Failed to add script file.");
         return r;
+    }
 
     r = builder.BuildModule();
     if (r < 0)
+    {
+        printf("Failed to build the module.");
         return r;
+    }
 
-    return r;
+    return 0;
 }
 
-int main()
+asIScriptFunction *getFunction(asIScriptEngine *engine, string declaration)
+{
+    return engine->GetModule(0)->GetFunctionByDecl(declaration.c_str());
+}
+
+int callFunction(asIScriptContext *ctx, asIScriptFunction *function, bool param, float dt)
 {
     int r;
 
-    string script = "demo/main.as";
-
-    asIScriptEngine *engine = asCreateScriptEngine();
-    if (engine == 0)
-    {
-        printf("Failed to create script engine.\n");
-        return -1;
-    }
-
-    engine->SetMessageCallback(asFUNCTION(MessageCallback), 0, asCALL_CDECL);
-
-    r = configureEngine(engine);
-    if (r < 0)
-    {
-        printf("Error configuring engine.\n");
-        engine->Release();
-        return -1;
-    }
-
-    r = compileScript(engine, script);
-    if (r < 0)
-    {
-        printf("Error compiling script.\n");
-        engine->Release();
-        return -1;
-    }
-
-    asIScriptContext *ctx = engine->CreateContext();
-    if (ctx == 0)
-    {
-        printf("Failed to create the context.\n");
-        engine->Release();
-        return -1;
-    }
-
-    asIScriptFunction *initFunc = engine->GetModule("MainModule")->GetFunctionByDecl("void init()");
-    if (initFunc == 0)
-    {
-        printf("The script must contain an init function!\n");
-        ctx->Release();
-        engine->Release();
-        return -1;
-    }
-
-    r = ctx->Prepare(initFunc);
+    r = ctx->Prepare(function);
     if (r < 0)
     {
         printf("Failed to prepare the context.\n");
-        ctx->Release();
-        engine->Release();
-        return -1;
+        return r;
+    }
+
+    if (param)
+    {
+        ctx->SetArgFloat(0, dt);
     }
 
     r = ctx->Execute();
@@ -141,6 +108,80 @@ int main()
         }
         else
             printf("The script ended for an unexpected reason.\n");
+
+        return r;
+    }
+
+    return 0;
+}
+
+int main()
+{
+    int r;
+
+    string script = "demo/main.as";
+
+    asIScriptEngine *engine = asCreateScriptEngine();
+    if (engine == 0)
+    {
+        printf("Failed to create script engine.\n");
+        return -1;
+    }
+
+    engine->SetMessageCallback(asFUNCTION(messageCallback), 0, asCALL_CDECL);
+
+    configureEngine(engine);
+
+    r = compileScript(engine, script);
+    if (r < 0)
+    {
+        printf("Error compiling script.\n");
+        engine->Release();
+        return -1;
+    }
+
+    asIScriptContext *ctx = engine->CreateContext();
+    if (ctx == 0)
+    {
+        printf("Failed to create the context.\n");
+        engine->Release();
+        return -1;
+    }
+
+    asIScriptFunction *initFunc = getFunction(engine, "void init()");
+    if (initFunc == 0)
+    {
+        printf("The script must contain an init function!\n");
+        ctx->Release();
+        engine->Release();
+        return -1;
+    }
+
+    asIScriptFunction *updateFunc = getFunction(engine, "void update(float dt)");
+    if (initFunc == 0)
+    {
+        printf("The script must contain an update function!\n");
+        ctx->Release();
+        engine->Release();
+        return -1;
+    }
+
+    asIScriptFunction *drawFunc = getFunction(engine, "void draw()");
+    if (initFunc == 0)
+    {
+        printf("The script must contain a draw function!\n");
+        ctx->Release();
+        engine->Release();
+        return -1;
+    }
+
+    r = callFunction(ctx, initFunc, false, 0);
+    if (r < 0)
+    {
+        printf("Error calling function.\n");
+        ctx->Release();
+        engine->Release();
+        return -1;
     }
 
     SetTraceLogLevel(LOG_NONE);
@@ -165,6 +206,17 @@ int main()
         virtualMouse.y = (mouse.y - (GetScreenHeight() - (HEIGHT*scale))*0.5f)/scale;
         virtualMouse = Vector2Clamp(virtualMouse, (Vector2){ 0, 0 }, (Vector2){ (float)WIDTH, (float)HEIGHT });
 
+        float dt = GetFrameTime();
+
+        r = callFunction(ctx, updateFunc, true, dt);
+        if (r < 0)
+        {
+            printf("Error calling function.\n");
+            ctx->Release();
+            engine->Release();
+            return -1;
+        }
+
         BeginDrawing();
 
         ClearBackground(BLACK);
@@ -172,6 +224,15 @@ int main()
         BeginTextureMode(target);
 
         ClearBackground(BLACK);
+
+        r = callFunction(ctx, drawFunc, false, 0);
+        if (r < 0)
+        {
+            printf("Error calling function.\n");
+            ctx->Release();
+            engine->Release();
+            return -1;
+        }
 
         EndTextureMode();
 
