@@ -1,14 +1,24 @@
+#include "test.as"
+
+bool showGreeting = false;
+
 void init()
 {
-    print("Hello!");
+    hello();
 }
 
 void update(float dt)
 {
-    print("DT: " + toString(dt));
+    if (vd::keyboard::isPressed(65))
+    {
+        showGreeting = !showGreeting;
+    }
 }
 
 void draw()
 {
-    graphicsPrint("Hi!", 10, 10);
+    if (showGreeting)
+    {
+        vd::graphics::print("Hello!", 10, 10);
+    }
 }

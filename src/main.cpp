@@ -1,5 +1,6 @@
-#include <stdio.h>
+#include <cstdio>
 #include <string>
+#include <cassert>
 
 #include "raylib.h"
 #include "raymath.h"
@@ -12,6 +13,7 @@
 
 #define WIDTH 1280
 #define HEIGHT 720
+#define REFRESH_RATE 60
 
 #define MAX(a, b) ((a)>(b)? (a) : (b))
 #define MIN(a, b) ((a)<(b)? (a) : (b))
@@ -20,7 +22,7 @@ using namespace std;
 
 void messageCallback(const asSMessageInfo *msg, void *param)
 {
-    const char *type = "ERR ";
+    const char *type = "ERR";
 
     if (msg->type == asMSGTYPE_WARNING)
         type = "WARN";
@@ -32,11 +34,28 @@ void messageCallback(const asSMessageInfo *msg, void *param)
 
 void configureEngine(asIScriptEngine *engine)
 {
+    int r;
+
     RegisterStdString(engine);
 
-    engine->RegisterGlobalFunction("void print(string &in)", asFUNCTION(print), asCALL_CDECL);
-    engine->RegisterGlobalFunction("string toString(float)", asFUNCTION(toString), asCALL_CDECL);
-    engine->RegisterGlobalFunction("void graphicsPrint(string &in, int, int)", asFUNCTION(graphicsPrint), asCALL_CDECL);
+    r = engine->SetDefaultNamespace("vd"); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("void log(string &in)", asFUNCTION(Api::log), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("string toString(int)", asFUNCTIONPR(Api::toString, (int), string), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("string toString(float)", asFUNCTIONPR(Api::toString, (float), string), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("string toString(bool)", asFUNCTIONPR(Api::toString, (bool), string), asCALL_CDECL); assert(r >= 0);
+
+    r = engine->SetDefaultNamespace("vd::graphics"); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("void print(string &in, int, int)", asFUNCTION(Api::print), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("void rectangle(string &in, int, int, int, int)", asFUNCTION(Api::rectangle), asCALL_CDECL); assert(r >= 0);
+
+    r = engine->SetDefaultNamespace("vd::math"); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("float random()", asFUNCTION(Api::random), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("float sqrt(float)", asFUNCTION(Api::sqrt), asCALL_CDECL); assert(r >= 0);
+
+    r = engine->SetDefaultNamespace("vd::keyboard"); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("bool isDown(int)", asFUNCTION(Api::isDown), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("bool isPressed(int)", asFUNCTION(Api::isPressed), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("bool isReleased(int)", asFUNCTION(Api::isReleased), asCALL_CDECL); assert(r >= 0);
 }
 
 int compileScript(asIScriptEngine *engine, string script)
@@ -74,23 +93,12 @@ asIScriptFunction *getFunction(asIScriptEngine *engine, string declaration)
     return engine->GetModule(0)->GetFunctionByDecl(declaration.c_str());
 }
 
-int callFunction(asIScriptContext *ctx, asIScriptFunction *function, bool param, float dt)
+int callFunction(asIScriptContext *ctx, asIScriptFunction *function)
 {
     int r;
 
-    r = ctx->Prepare(function);
-    if (r < 0)
-    {
-        printf("Failed to prepare the context.\n");
-        return r;
-    }
-
-    if (param)
-    {
-        ctx->SetArgFloat(0, dt);
-    }
-
     r = ctx->Execute();
+
     if (r != asEXECUTION_FINISHED)
     {
         if (r == asEXECUTION_ABORTED)
@@ -135,7 +143,6 @@ int main()
     r = compileScript(engine, script);
     if (r < 0)
     {
-        printf("Error compiling script.\n");
         engine->Release();
         return -1;
     }
@@ -175,10 +182,18 @@ int main()
         return -1;
     }
 
-    r = callFunction(ctx, initFunc, false, 0);
+    r = ctx->Prepare(initFunc);
     if (r < 0)
     {
-        printf("Error calling function.\n");
+        printf("Failed to prepare the context.\n");
+        ctx->Release();
+        engine->Release();
+        return -1;
+    }
+
+    r = callFunction(ctx, initFunc);
+    if (r < 0)
+    {
         ctx->Release();
         engine->Release();
         return -1;
@@ -187,11 +202,9 @@ int main()
     SetTraceLogLevel(LOG_NONE);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(WIDTH, HEIGHT, "Void by Vinny Horgan");
-    SetWindowMinSize(WIDTH, HEIGHT);
-    SetTargetFPS(60);
+    SetWindowMinSize(WIDTH / 2, HEIGHT / 2);
+    SetTargetFPS(REFRESH_RATE);
     SetExitKey(KEY_NULL);
-
-    MaximizeWindow();
 
     RenderTexture target = LoadRenderTexture(WIDTH, HEIGHT);
     SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
@@ -208,10 +221,20 @@ int main()
 
         float dt = GetFrameTime();
 
-        r = callFunction(ctx, updateFunc, true, dt);
+        r = ctx->Prepare(updateFunc);
         if (r < 0)
         {
-            printf("Error calling function.\n");
+            printf("Failed to prepare the context.\n");
+            ctx->Release();
+            engine->Release();
+            return -1;
+        }
+
+        ctx->SetArgFloat(0, dt);
+
+        r = callFunction(ctx, updateFunc);
+        if (r < 0)
+        {
             ctx->Release();
             engine->Release();
             return -1;
@@ -225,10 +248,18 @@ int main()
 
         ClearBackground(BLACK);
 
-        r = callFunction(ctx, drawFunc, false, 0);
+        r = ctx->Prepare(drawFunc);
         if (r < 0)
         {
-            printf("Error calling function.\n");
+            printf("Failed to prepare the context.\n");
+            ctx->Release();
+            engine->Release();
+            return -1;
+        }
+
+        r = callFunction(ctx, drawFunc);
+        if (r < 0)
+        {
             ctx->Release();
             engine->Release();
             return -1;
