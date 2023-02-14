@@ -9,7 +9,7 @@ void init()
 
 void update(float dt)
 {
-    if (vd::keyboard::isPressed(65))
+    if (vd::keyboard::isPressed(vd::keyboard::Key::A))
     {
         showGreeting = !showGreeting;
     }

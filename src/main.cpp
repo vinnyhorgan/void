@@ -53,6 +53,68 @@ void configureEngine(asIScriptEngine *engine)
     r = engine->RegisterGlobalFunction("float sqrt(float)", asFUNCTION(Api::sqrt), asCALL_CDECL); assert(r >= 0);
 
     r = engine->SetDefaultNamespace("vd::keyboard"); assert(r >= 0);
+    r = engine->RegisterEnum("Key"); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "A", Api::Key::A); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "B", Api::Key::B); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "C", Api::Key::C); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "D", Api::Key::D); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "E", Api::Key::E); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F", Api::Key::F); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "G", Api::Key::G); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "H", Api::Key::H); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "I", Api::Key::I); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "J", Api::Key::J); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "K", Api::Key::K); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "L", Api::Key::L); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "M", Api::Key::M); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "N", Api::Key::N); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "O", Api::Key::O); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "P", Api::Key::P); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Q", Api::Key::Q); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "R", Api::Key::R); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "S", Api::Key::S); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "T", Api::Key::T); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "U", Api::Key::U); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "V", Api::Key::V); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "W", Api::Key::W); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "X", Api::Key::X); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Y", Api::Key::Y); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Z", Api::Key::Z); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Space", Api::Key::Space); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Enter", Api::Key::Enter); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Escape", Api::Key::Escape); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Up", Api::Key::Up); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Down", Api::Key::Down); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Left", Api::Key::Left); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Right", Api::Key::Right); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Shift", Api::Key::Shift); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Control", Api::Key::Control); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Alt", Api::Key::Alt); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Tab", Api::Key::Tab); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Backspace", Api::Key::Backspace); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "CapsLock", Api::Key::CapsLock); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Zero", Api::Key::Zero); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "One", Api::Key::One); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Two", Api::Key::Two); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Three", Api::Key::Three); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Four", Api::Key::Four); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Five", Api::Key::Five); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Six", Api::Key::Six); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Seven", Api::Key::Seven); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Eight", Api::Key::Eight); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "Nine", Api::Key::Nine); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F1", Api::Key::F1); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F2", Api::Key::F2); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F3", Api::Key::F3); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F4", Api::Key::F4); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F5", Api::Key::F5); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F6", Api::Key::F6); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F7", Api::Key::F7); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F8", Api::Key::F8); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F9", Api::Key::F9); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F10", Api::Key::F10); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F11", Api::Key::F11); assert(r >= 0);
+    r = engine->RegisterEnumValue("Key", "F12", Api::Key::F12); assert(r >= 0);
     r = engine->RegisterGlobalFunction("bool isDown(int)", asFUNCTION(Api::isDown), asCALL_CDECL); assert(r >= 0);
     r = engine->RegisterGlobalFunction("bool isPressed(int)", asFUNCTION(Api::isPressed), asCALL_CDECL); assert(r >= 0);
     r = engine->RegisterGlobalFunction("bool isReleased(int)", asFUNCTION(Api::isReleased), asCALL_CDECL); assert(r >= 0);
@@ -220,6 +282,10 @@ int main()
         virtualMouse = Vector2Clamp(virtualMouse, (Vector2){ 0, 0 }, (Vector2){ (float)WIDTH, (float)HEIGHT });
 
         float dt = GetFrameTime();
+
+        int key = GetCharPressed();
+        if (key != 0)
+            printf("KEY: %c\n", key);
 
         r = ctx->Prepare(updateFunc);
         if (r < 0)
