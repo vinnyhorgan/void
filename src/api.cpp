@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cmath>
 #include <string>
+#include <vector>
 
 #include "angelscript.h"
 #include "raylib.h"
@@ -11,12 +12,15 @@ using namespace std;
 
 Color currentColor = WHITE;
 
+extern vector<string> consoleHistory;
+
 namespace Api
 {
     // Utils
     void log(string &str)
     {
         printf("%s\n", str.c_str());
+        consoleHistory.push_back(str + "\n");
     }
 
     string toString(int value)

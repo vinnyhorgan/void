@@ -1,12 +1,15 @@
 #include <cstdio>
 #include <string>
 #include <cassert>
+#include <fstream>
+#include <vector>
 
 #include "raylib.h"
 #include "raymath.h"
 
 #include "imgui.h"
 #include "rlImGui.h"
+#include "TextEditor.h"
 
 #include "angelscript.h"
 #include "scriptstdstring.h"
@@ -14,14 +17,24 @@
 
 #include "api.h"
 
-#define WIDTH 1280
-#define HEIGHT 720
+#define WINDOW_WIDTH 1280
+#define WINDOW_HEIGHT 720
+#define WIDTH 800
+#define HEIGHT 600
 #define REFRESH_RATE 60
 
 #define MAX(a, b) ((a)>(b)? (a) : (b))
 #define MIN(a, b) ((a)<(b)? (a) : (b))
 
 using namespace std;
+
+vector<string> consoleHistory;
+string baseDir = "demo";
+asIScriptEngine *engine;
+asIScriptContext *ctx;
+asIScriptFunction *initFunc;
+asIScriptFunction *updateFunc;
+asIScriptFunction *drawFunc;
 
 void messageCallback(const asSMessageInfo *msg, void *param)
 {
@@ -199,13 +212,11 @@ int callFunction(asIScriptContext *ctx, asIScriptFunction *function)
     return 0;
 }
 
-int main()
+int reload()
 {
     int r;
 
-    string script = "demo/main.as";
-
-    asIScriptEngine *engine = asCreateScriptEngine();
+    engine = asCreateScriptEngine();
     if (engine == 0)
     {
         printf("Failed to create script engine.\n");
@@ -216,14 +227,14 @@ int main()
 
     configureEngine(engine);
 
-    r = compileScript(engine, script);
+    r = compileScript(engine, baseDir + "/main.as");
     if (r < 0)
     {
         engine->Release();
         return -1;
     }
 
-    asIScriptContext *ctx = engine->CreateContext();
+    ctx = engine->CreateContext();
     if (ctx == 0)
     {
         printf("Failed to create the context.\n");
@@ -231,7 +242,7 @@ int main()
         return -1;
     }
 
-    asIScriptFunction *initFunc = getFunction(engine, "void init()");
+    initFunc = getFunction(engine, "void init()");
     if (initFunc == 0)
     {
         printf("The script must contain an init function!\n");
@@ -240,7 +251,7 @@ int main()
         return -1;
     }
 
-    asIScriptFunction *updateFunc = getFunction(engine, "void update(float dt)");
+    updateFunc = getFunction(engine, "void update(float dt)");
     if (initFunc == 0)
     {
         printf("The script must contain an update function!\n");
@@ -249,7 +260,7 @@ int main()
         return -1;
     }
 
-    asIScriptFunction *drawFunc = getFunction(engine, "void draw()");
+    drawFunc = getFunction(engine, "void draw()");
     if (initFunc == 0)
     {
         printf("The script must contain a draw function!\n");
@@ -275,10 +286,21 @@ int main()
         return -1;
     }
 
+    return 0;
+}
+
+int main()
+{
+    int r;
+
+    r = reload();
+    if (r < 0)
+        return -1;
+
     SetTraceLogLevel(LOG_NONE);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(WIDTH, HEIGHT, "Void by Vinny Horgan");
-    SetWindowMinSize(WIDTH / 2, HEIGHT / 2);
+    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Void by Vinny Horgan");
+    SetWindowMinSize(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
     SetTargetFPS(REFRESH_RATE);
     SetExitKey(KEY_NULL);
 
@@ -289,6 +311,17 @@ int main()
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigWindowsMoveFromTitleBarOnly = true;
+
+    TextEditor editor;
+    auto lang = TextEditor::LanguageDefinition::AngelScript();
+    editor.SetLanguageDefinition(lang);
+
+    ifstream t(baseDir + "/main.as");
+    stringstream buffer;
+    buffer << t.rdbuf();
+
+    editor.SetText(buffer.str());
 
     while (!WindowShouldClose())
     {
@@ -348,16 +381,142 @@ int main()
 
         EndTextureMode();
 
+/*
         DrawTexturePro(target.texture, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height },
                     (Rectangle){ (GetScreenWidth() - ((float)WIDTH*scale))*0.5f, (GetScreenHeight() - ((float)HEIGHT*scale))*0.5f,
                     (float)WIDTH*scale, (float)HEIGHT*scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
+*/
 
         rlImGuiBegin();
 
         ImGui::DockSpaceOverViewport();
 
+/*
         bool open = true;
         ImGui::ShowDemoWindow(&open);
+*/
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_None);
+
+        rlImGuiImageRect(&target.texture, target.texture.width, target.texture.height, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height});
+        ImGui::End();
+        ImGui::PopStyleVar();
+
+        ImGui::Begin("Console", nullptr, ImGuiWindowFlags_MenuBar);
+
+        if (ImGui::BeginMenuBar())
+        {
+            if (ImGui::BeginMenu("Options"))
+            {
+                if (ImGui::MenuItem("Clear"))
+                {
+                    consoleHistory.clear();
+                }
+
+                ImGui::EndMenu();
+            }
+
+            ImGui::EndMenuBar();
+        }
+
+        for (auto& line : consoleHistory)
+        {
+            ImGui::TextUnformatted(line.c_str());
+        }
+
+        ImGui::End();
+
+        auto cpos = editor.GetCursorPosition();
+        ImGui::Begin("Text Editor", nullptr, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_MenuBar);
+        ImGui::SetWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+        if (ImGui::BeginMenuBar())
+        {
+            if (ImGui::BeginMenu("File"))
+            {
+                if (ImGui::MenuItem("Run"))
+                {
+                    r = reload();
+                    if (r < 0)
+                        return -1;
+                }
+
+                if (ImGui::MenuItem("Save"))
+                {
+                    string textToSave = editor.GetText();
+
+                    ofstream out(baseDir + "/main.as");
+                    out << textToSave;
+                    out.close();
+                }
+
+                if (ImGui::MenuItem("Quit", "Alt-F4"))
+                    break;
+
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("Edit"))
+            {
+                bool ro = editor.IsReadOnly();
+
+                if (ImGui::MenuItem("Read-only mode", nullptr, &ro))
+                    editor.SetReadOnly(ro);
+
+                ImGui::Separator();
+
+                if (ImGui::MenuItem("Undo", "ALT-Backspace", nullptr, !ro && editor.CanUndo()))
+                    editor.Undo();
+
+                if (ImGui::MenuItem("Redo", "Ctrl-Y", nullptr, !ro && editor.CanRedo()))
+                    editor.Redo();
+
+                ImGui::Separator();
+
+                if (ImGui::MenuItem("Copy", "Ctrl-C", nullptr, editor.HasSelection()))
+                    editor.Copy();
+
+                if (ImGui::MenuItem("Cut", "Ctrl-X", nullptr, !ro && editor.HasSelection()))
+                    editor.Cut();
+
+                if (ImGui::MenuItem("Delete", "Del", nullptr, !ro && editor.HasSelection()))
+                    editor.Delete();
+
+                if (ImGui::MenuItem("Paste", "Ctrl-V", nullptr, !ro && ImGui::GetClipboardText() != nullptr))
+                    editor.Paste();
+
+                ImGui::Separator();
+
+                if (ImGui::MenuItem("Select all", nullptr, nullptr))
+                    editor.SetSelection(TextEditor::Coordinates(), TextEditor::Coordinates(editor.GetTotalLines(), 0));
+
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("View"))
+            {
+                if (ImGui::MenuItem("Dark palette"))
+                    editor.SetPalette(TextEditor::GetDarkPalette());
+
+                if (ImGui::MenuItem("Light palette"))
+                    editor.SetPalette(TextEditor::GetLightPalette());
+
+                if (ImGui::MenuItem("Retro blue palette"))
+                    editor.SetPalette(TextEditor::GetRetroBluePalette());
+
+                ImGui::EndMenu();
+            }
+
+            ImGui::EndMenuBar();
+        }
+
+        ImGui::Text("%6d/%-6d %6d lines  | %s | %s | %s | %s", cpos.mLine + 1, cpos.mColumn + 1, editor.GetTotalLines(),
+            editor.IsOverwrite() ? "Ovr" : "Ins",
+            editor.CanUndo() ? "*" : " ",
+            editor.GetLanguageDefinition().mName.c_str(), baseDir.c_str());
+
+        editor.Render("TextEditor");
+        ImGui::End();
 
         rlImGuiEnd();
 

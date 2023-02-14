@@ -23,6 +23,7 @@ void draw()
 {
     if (showGreeting)
     {
-        vd::graphics::print("Hello!", 10, 10);
+        vd::graphics::print("Hellooo!", 10, 10);
     }
 }
+
