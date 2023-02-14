@@ -1,7 +1,7 @@
 #ifndef AS_SCRIPTFILESYSTEM_H
 #define AS_SCRIPTFILESYSTEM_H
 
-#ifndef ANGELSCRIPT_H 
+#ifndef ANGELSCRIPT_H
 // Avoid having to inform include path if header is already include before
 #include <angelscript.h>
 #endif
@@ -9,8 +9,8 @@
 #include <string>
 #include <stdio.h>
 
-#include "../scriptarray/scriptarray.h"
-#include "../datetime/datetime.h"
+#include "scriptarray.h"
+#include "datetime.h"
 
 BEGIN_AS_NAMESPACE
 
@@ -57,7 +57,7 @@ public:
 
 	// Moves or renames a file or directory. Returns 0 on success
 	int Move(const std::string &source, const std::string &target);
-	
+
 	// Gets the date and time of the file/dir creation
 	CDateTime GetCreateDateTime(const std::string &path) const;
 

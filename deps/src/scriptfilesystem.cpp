@@ -1,5 +1,5 @@
 #include "scriptfilesystem.h"
-#include "../autowrapper/aswrappedcall.h"
+#include "aswrappedcall.h"
 #include <string.h> // strstr()
 
 #if defined(_WIN32)

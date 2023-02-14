@@ -283,7 +283,7 @@ int main()
 
         float dt = GetFrameTime();
 
-        int key = GetCharPressed();
+        int key = GetKeyPressed();
         if (key != 0)
             printf("KEY: %c\n", key);
 

@@ -1,5 +1,5 @@
 #include "datetime.h"
-#include "../autowrapper/aswrappedcall.h"
+#include "aswrappedcall.h"
 #include <string.h>
 #include <assert.h>
 #include <new>
@@ -15,7 +15,7 @@ static tm time_point_to_tm(const std::chrono::time_point<std::chrono::system_clo
 {
 	time_t t = system_clock::to_time_t(tp);
 	tm local;
-	
+
 	// Use the universal timezone
 #ifdef _MSC_VER
 	gmtime_s(&local, &t);
@@ -38,7 +38,7 @@ static bool tm_to_time_point(const tm &_tm, std::chrono::time_point<std::chrono:
 	time_t t = mktime(&localTm);
 	if (t == -1)
 		return false;
-	
+
 	// Adjust the time_t since epoch with the difference of the local timezone to the universal timezone
 	// TODO: localtime, gmtime, and mktime are not threadsafe
 	t += (mktime(localtime(&t)) - mktime(gmtime(&t)));
@@ -47,11 +47,11 @@ static bool tm_to_time_point(const tm &_tm, std::chrono::time_point<std::chrono:
 	return true;
 }
 
-CDateTime::CDateTime() : tp(std::chrono::system_clock::now()) 
+CDateTime::CDateTime() : tp(std::chrono::system_clock::now())
 {
 }
 
-CDateTime::CDateTime(const CDateTime &o) : tp(o.tp) 
+CDateTime::CDateTime(const CDateTime &o) : tp(o.tp)
 {
 }
 
@@ -107,7 +107,7 @@ bool CDateTime::setDate(asUINT year, asUINT month, asUINT day)
 	std::chrono::time_point<std::chrono::system_clock> newTp;
 	if (!tm_to_time_point(local, newTp))
 		return false;
-	
+
 	// Check if the date was actually valid
 	tm local2 = time_point_to_tm(newTp);
 
