@@ -5,6 +5,10 @@ bool showGreeting = false;
 void init()
 {
     hello();
+
+    vd::Version version = vd::getVersion();
+
+    vd::log(vd::toString(version.major));
 }
 
 void update(float dt)

@@ -34,6 +34,17 @@ namespace Api
         return to_string(value);
     }
 
+    Version *getVersion()
+    {
+        Version *version = new Version();
+
+        version->major = 1;
+        version->minor = 2;
+        version->patch = 3;
+
+        return version;
+    }
+
     // Graphics
     void print(string &str, int x, int y)
     {

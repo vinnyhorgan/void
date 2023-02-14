@@ -74,11 +74,52 @@ namespace Api
         F12 = 123,
     };
 
+    class Version
+    {
+    public:
+        int major;
+        int minor;
+        int patch;
+
+        int refCount;
+
+        Version()
+        {
+            refCount = 1;
+        }
+
+        void addRef()
+        {
+            refCount++;
+        }
+
+        void release()
+        {
+            refCount--;
+
+            if (refCount == 0)
+            {
+                delete this;
+            }
+        }
+
+        static Version *factory()
+        {
+            return new Version();
+        }
+
+        static Version &assignment(Version *other, Version *self)
+        {
+            return *self = *other;
+        }
+    };
+
     // Utils
     void log(string &str);
     string toString(int value);
     string toString(float value);
     string toString(bool value);
+    Version *getVersion();
 
     // Graphics
     void print(string &str, int x, int y);

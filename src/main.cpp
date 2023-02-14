@@ -5,6 +5,9 @@
 #include "raylib.h"
 #include "raymath.h"
 
+#include "imgui.h"
+#include "rlImGui.h"
+
 #include "angelscript.h"
 #include "scriptstdstring.h"
 #include "scriptbuilder.h"
@@ -43,6 +46,17 @@ void configureEngine(asIScriptEngine *engine)
     r = engine->RegisterGlobalFunction("string toString(int)", asFUNCTIONPR(Api::toString, (int), string), asCALL_CDECL); assert(r >= 0);
     r = engine->RegisterGlobalFunction("string toString(float)", asFUNCTIONPR(Api::toString, (float), string), asCALL_CDECL); assert(r >= 0);
     r = engine->RegisterGlobalFunction("string toString(bool)", asFUNCTIONPR(Api::toString, (bool), string), asCALL_CDECL); assert(r >= 0);
+
+    r = engine->RegisterObjectType("Version", 0, asOBJ_REF); assert(r >= 0);
+    r = engine->RegisterObjectBehaviour("Version", asBEHAVE_FACTORY, "Version@ f()", asFUNCTION(Api::Version::factory), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterObjectBehaviour("Version", asBEHAVE_ADDREF, "void f()", asMETHOD(Api::Version, addRef), asCALL_THISCALL); assert(r >= 0);
+    r = engine->RegisterObjectBehaviour("Version", asBEHAVE_RELEASE, "void f()", asMETHOD(Api::Version, release), asCALL_THISCALL); assert(r >= 0);
+    r = engine->RegisterObjectMethod("Version", "Version &opAssign(Version&in)", asFUNCTION(Api::Version::assignment), asCALL_CDECL_OBJLAST); assert(r >= 0);
+    r = engine->RegisterObjectProperty("Version", "int major", asOFFSET(Api::Version, major)); assert(r >= 0);
+    r = engine->RegisterObjectProperty("Version", "int minor", asOFFSET(Api::Version, minor)); assert(r >= 0);
+    r = engine->RegisterObjectProperty("Version", "int patch", asOFFSET(Api::Version, patch)); assert(r >= 0);
+
+    r = engine->RegisterGlobalFunction("Version@ getVersion()", asFUNCTION(Api::getVersion), asCALL_CDECL); assert(r >= 0);
 
     r = engine->SetDefaultNamespace("vd::graphics"); assert(r >= 0);
     r = engine->RegisterGlobalFunction("void print(string &in, int, int)", asFUNCTION(Api::print), asCALL_CDECL); assert(r >= 0);
@@ -271,6 +285,11 @@ int main()
     RenderTexture target = LoadRenderTexture(WIDTH, HEIGHT);
     SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
 
+    rlImGuiSetup(true);
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
     while (!WindowShouldClose())
     {
         float scale = MIN((float)GetScreenWidth()/WIDTH, (float)GetScreenHeight()/HEIGHT);
@@ -282,10 +301,6 @@ int main()
         virtualMouse = Vector2Clamp(virtualMouse, (Vector2){ 0, 0 }, (Vector2){ (float)WIDTH, (float)HEIGHT });
 
         float dt = GetFrameTime();
-
-        int key = GetKeyPressed();
-        if (key != 0)
-            printf("KEY: %c\n", key);
 
         r = ctx->Prepare(updateFunc);
         if (r < 0)
@@ -337,11 +352,22 @@ int main()
                     (Rectangle){ (GetScreenWidth() - ((float)WIDTH*scale))*0.5f, (GetScreenHeight() - ((float)HEIGHT*scale))*0.5f,
                     (float)WIDTH*scale, (float)HEIGHT*scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
 
+        rlImGuiBegin();
+
+        ImGui::DockSpaceOverViewport();
+
+        bool open = true;
+        ImGui::ShowDemoWindow(&open);
+
+        rlImGuiEnd();
+
         EndDrawing();
     }
 
     ctx->Release();
     engine->ShutDownAndRelease();
+
+    rlImGuiShutdown();
 
     UnloadRenderTexture(target);
 
