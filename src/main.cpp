@@ -58,11 +58,13 @@ struct Error
 };
 
 Mode mode = MODE_DEV;
+bool devRunning = false;
 bool error = false;
 Error errorMessage;
 vector<string> consoleHistory;
 string baseDir = "demo";
 bool focus = true;
+
 asIScriptEngine *engine;
 asIScriptContext *ctx;
 asIScriptFunction *initFunc;
@@ -142,25 +144,26 @@ void configureEngine(asIScriptEngine *engine)
     RegisterExceptionRoutines(engine);
 
     r = engine->SetDefaultNamespace("vd"); assert(r >= 0);
-    r = engine->RegisterGlobalFunction("void log(string &in)", asFUNCTION(Api::log), asCALL_CDECL); assert(r >= 0);
-    r = engine->RegisterGlobalFunction("string toString(int)", asFUNCTIONPR(Api::toString, (int), string), asCALL_CDECL); assert(r >= 0);
-    r = engine->RegisterGlobalFunction("string toString(float)", asFUNCTIONPR(Api::toString, (float), string), asCALL_CDECL); assert(r >= 0);
-    r = engine->RegisterGlobalFunction("string toString(bool)", asFUNCTIONPR(Api::toString, (bool), string), asCALL_CDECL); assert(r >= 0);
 
-    r = engine->RegisterObjectType("Version", 0, asOBJ_REF); assert(r >= 0);
-    r = engine->RegisterObjectBehaviour("Version", asBEHAVE_FACTORY, "Version@ f()", asFUNCTION(Api::Version::factory), asCALL_CDECL); assert(r >= 0);
-    r = engine->RegisterObjectBehaviour("Version", asBEHAVE_ADDREF, "void f()", asMETHOD(Api::Version, addRef), asCALL_THISCALL); assert(r >= 0);
-    r = engine->RegisterObjectBehaviour("Version", asBEHAVE_RELEASE, "void f()", asMETHOD(Api::Version, release), asCALL_THISCALL); assert(r >= 0);
-    r = engine->RegisterObjectMethod("Version", "Version &opAssign(Version&in)", asFUNCTION(Api::Version::assignment), asCALL_CDECL_OBJLAST); assert(r >= 0);
+    r = engine->RegisterObjectType("Version", sizeof(Api::Version), asOBJ_VALUE | asOBJ_POD | asGetTypeTraits<Api::Version>()); assert(r >= 0);
     r = engine->RegisterObjectProperty("Version", "int major", asOFFSET(Api::Version, major)); assert(r >= 0);
     r = engine->RegisterObjectProperty("Version", "int minor", asOFFSET(Api::Version, minor)); assert(r >= 0);
     r = engine->RegisterObjectProperty("Version", "int patch", asOFFSET(Api::Version, patch)); assert(r >= 0);
 
-    r = engine->RegisterGlobalFunction("Version@ getVersion()", asFUNCTION(Api::getVersion), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("void log(string &in)", asFUNCTION(Api::log), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("string toString(int)", asFUNCTIONPR(Api::toString, (int), string), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("string toString(float)", asFUNCTIONPR(Api::toString, (float), string), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("string toString(bool)", asFUNCTIONPR(Api::toString, (bool), string), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("Version getVersion()", asFUNCTION(Api::getVersion), asCALL_CDECL); assert(r >= 0);
 
     r = engine->SetDefaultNamespace("vd::graphics"); assert(r >= 0);
+
+    r = engine->RegisterObjectType("Image", sizeof(Api::Image), asOBJ_VALUE | asOBJ_POD | asGetTypeTraits<Api::Image>()); assert(r >= 0);
+
     r = engine->RegisterGlobalFunction("void print(string &in, int, int)", asFUNCTION(Api::print), asCALL_CDECL); assert(r >= 0);
     r = engine->RegisterGlobalFunction("void rectangle(string &in, int, int, int, int)", asFUNCTION(Api::rectangle), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("Image newImage(string &in)", asFUNCTION(Api::newImage), asCALL_CDECL); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("void drawImage(Image, int, int)", asFUNCTION(Api::drawImage), asCALL_CDECL); assert(r >= 0);
 
     r = engine->SetDefaultNamespace("vd::math"); assert(r >= 0);
     r = engine->RegisterGlobalFunction("float random()", asFUNCTION(Api::random), asCALL_CDECL); assert(r >= 0);
@@ -232,6 +235,9 @@ void configureEngine(asIScriptEngine *engine)
     r = engine->RegisterGlobalFunction("bool isDown(int)", asFUNCTION(Api::isDown), asCALL_CDECL); assert(r >= 0);
     r = engine->RegisterGlobalFunction("bool isPressed(int)", asFUNCTION(Api::isPressed), asCALL_CDECL); assert(r >= 0);
     r = engine->RegisterGlobalFunction("bool isReleased(int)", asFUNCTION(Api::isReleased), asCALL_CDECL); assert(r >= 0);
+
+    r = engine->SetDefaultNamespace("vd::timer"); assert(r >= 0);
+    r = engine->RegisterGlobalFunction("int getFPS()", asFUNCTION(Api::getFPS), asCALL_CDECL); assert(r >= 0);
 }
 
 int compileScript(asIScriptEngine *engine, string script)
@@ -377,14 +383,16 @@ int main()
 {
     int r;
 
-    reload();
-
     SetTraceLogLevel(LOG_NONE);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Void by Vinny Horgan");
     SetWindowMinSize(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
-    SetTargetFPS(REFRESH_RATE);
+    // SetTargetFPS(REFRESH_RATE);
     SetExitKey(KEY_NULL);
+
+    SetRandomSeed((unsigned) time(NULL));
+
+    reload();
 
     RenderTexture target = LoadRenderTexture(WIDTH, HEIGHT);
     SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
@@ -541,6 +549,18 @@ int main()
                     callFunction(ctx, textinputFunc);
                 }
             }
+        }
+
+
+        if (mode == MODE_DEV && IsKeyPressed(KEY_ESCAPE))
+        {
+            mode = MODE_RUNTIME;
+            devRunning = true;
+        }
+        else if (devRunning && IsKeyPressed(KEY_ESCAPE))
+        {
+            mode = MODE_DEV;
+            devRunning = false;
         }
 
         BeginDrawing();

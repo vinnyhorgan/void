@@ -2,13 +2,45 @@
 #define API_H
 
 #include <string>
+#include <vector>
 
+#include "raylib.h"
 #include "angelscript.h"
 
 using namespace std;
 
 namespace Api
 {
+    // Utils
+    struct Version
+    {
+        int major;
+        int minor;
+        int patch;
+    };
+
+    void log(string &str);
+    string toString(int value);
+    string toString(float value);
+    string toString(bool value);
+    Version getVersion();
+
+    // Graphics
+    struct Image
+    {
+        int id;
+    };
+
+    void print(string &str, int x, int y);
+    void rectangle(string &mode, int x, int y, int width, int height);
+    Image newImage(string &path);
+    void drawImage(Image image, int x, int y);
+
+    // Math
+    float random();
+    float sqrt(float value);
+
+    // Keyboard
     enum Key
     {
         A = 65,
@@ -74,65 +106,12 @@ namespace Api
         F12 = 123,
     };
 
-    class Version
-    {
-    public:
-        int major;
-        int minor;
-        int patch;
-
-        int refCount;
-
-        Version()
-        {
-            refCount = 1;
-        }
-
-        void addRef()
-        {
-            refCount++;
-        }
-
-        void release()
-        {
-            refCount--;
-
-            if (refCount == 0)
-            {
-                delete this;
-            }
-        }
-
-        static Version *factory()
-        {
-            return new Version();
-        }
-
-        static Version &assignment(Version *other, Version *self)
-        {
-            return *self = *other;
-        }
-    };
-
-    // Utils
-    void log(string &str);
-    string toString(int value);
-    string toString(float value);
-    string toString(bool value);
-    Version *getVersion();
-
-    // Graphics
-    void print(string &str, int x, int y);
-    void rectangle(string &mode, int x, int y, int width, int height);
-
-    // Math
-    float random();
-    float sqrt(float value);
-
-    // Keyboard
     bool isDown(int key);
     bool isPressed(int key);
     bool isReleased(int key);
+
+    // timer
+    int getFPS();
 }
 
 #endif

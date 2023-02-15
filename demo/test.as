@@ -1,4 +1,4 @@
 void hello()
 {
-    vd::log("Hello, World!");
+    vd::log("Hello from module!");
 }

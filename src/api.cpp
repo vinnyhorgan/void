@@ -4,6 +4,9 @@
 #include <cmath>
 #include <string>
 #include <vector>
+#include <map>
+#include <random>
+#include <algorithm>
 
 #include "angelscript.h"
 #include "raylib.h"
@@ -11,6 +14,7 @@
 using namespace std;
 
 Color currentColor = WHITE;
+map<int, Texture> loadedTextures;
 
 extern vector<string> consoleHistory;
 
@@ -38,13 +42,13 @@ namespace Api
         return to_string(value);
     }
 
-    Version *getVersion()
+    Version getVersion()
     {
-        Version *version = new Version();
+        Version version;
 
-        version->major = 1;
-        version->minor = 2;
-        version->patch = 3;
+        version.major = 1;
+        version.minor = 2;
+        version.patch = 3;
 
         return version;
     }
@@ -65,6 +69,24 @@ namespace Api
         {
             DrawRectangleLines(x, y, width, height, currentColor);
         }
+    }
+
+    Image newImage(string &path)
+    {
+        int id = GetRandomValue(0, 1000000);
+
+        Image newImage;
+
+        newImage.id = id;
+
+        loadedTextures[id] = LoadTexture(path.c_str());
+
+        return newImage;
+    }
+
+    void drawImage(Image image, int x, int y)
+    {
+        DrawTexture(loadedTextures[image.id], x, y, WHITE);
     }
 
     // Math
@@ -92,5 +114,11 @@ namespace Api
     bool isReleased(int key)
     {
         return IsKeyReleased(key);
+    }
+
+    // timer
+    int getFPS()
+    {
+        return GetFPS();
     }
 }

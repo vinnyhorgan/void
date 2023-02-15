@@ -1,55 +1,54 @@
 #include "test.as"
 
-bool showGreeting = false;
-array<int> a = {3, 2, 1};
+vd::graphics::Image a;
+vd::graphics::Image b;
+vd::graphics::Image c;
+
+float x = 100;
+float y = 100;
+
+vd::Version version;
 
 void init()
 {
     hello();
 
-    vd::Version version = vd::getVersion();
-
-    vd::log(vd::toString(version.major));
-    vd::log(vd::toString(a[0]));
+    a = vd::graphics::newImage("assets/test.png");
+    b = vd::graphics::newImage("assets/test.png");
+    c = vd::graphics::newImage("assets/test.png");
 }
 
 void update(float dt)
 {
-    if (vd::keyboard::isPressed(vd::keyboard::Key::A))
+    if (vd::keyboard::isDown(vd::keyboard::Key::A))
     {
-        showGreeting = !showGreeting;
+        x -= 200 * dt;
     }
+    else if (vd::keyboard::isDown(vd::keyboard::Key::D))
+    {
+        x += 200 * dt;
+    }
+
+    if (vd::keyboard::isDown(vd::keyboard::Key::W))
+    {
+        y -= 200 * dt;
+    }
+    else if (vd::keyboard::isDown(vd::keyboard::Key::S))
+    {
+        y += 200 * dt;
+    }
+
+    version = vd::getVersion();
+    vd::log("Version: " + vd::toString(version.major) + "." + vd::toString(version.minor) + "." + vd::toString(version.patch));
 }
 
 void draw()
 {
-    if (showGreeting)
-    {
-        vd::graphics::print("Hellooo!", 10, 10);
-    }
+    vd::graphics::print("FPS: " + vd::toString(vd::timer::getFPS()), 10, 10);
 
     vd::graphics::rectangle("line", 100, 100, 100, 100);
-}
 
-void filesdropped(array<string> filenames)
-{
-    for (uint i = 0; i < filenames.length(); i++)
-    {
-        vd::log(filenames[i]);
-    }
-}
-
-void focus(bool focus)
-{
-    vd::log("Focus: " + vd::toString(focus));
-}
-
-void resize(int width, int height)
-{
-    vd::log("Resize: " + vd::toString(width) + "x" + vd::toString(height));
-}
-
-void textinput(string text)
-{
-    vd::log("Text input: " + text);
+    vd::graphics::drawImage(a, x, y);
+    vd::graphics::drawImage(b, 200, 200);
+    vd::graphics::drawImage(c, 300, 300);
 }
