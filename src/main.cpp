@@ -12,8 +12,21 @@
 #include "TextEditor.h"
 
 #include "angelscript.h"
-#include "scriptstdstring.h"
 #include "scriptbuilder.h"
+
+#include "scriptstdstring.h"
+#include "scriptarray.h"
+#include "scriptany.h"
+#include "scripthandle.h"
+#include "weakref.h"
+#include "scriptdictionary.h"
+#include "scriptfile.h"
+#include "scriptfilesystem.h"
+#include "scriptmath.h"
+#include "scriptmathcomplex.h"
+#include "scriptgrid.h"
+#include "datetime.h"
+#include "scripthelper.h"
 
 #include "api.h"
 
@@ -28,6 +41,25 @@
 
 using namespace std;
 
+enum Mode
+{
+    MODE_DEV,
+    MODE_RUNTIME
+};
+
+struct Error
+{
+    string message;
+    string section;
+    int type;
+    int line;
+    int column;
+    vector<string> tracelog;
+};
+
+Mode mode = MODE_DEV;
+bool error = false;
+Error errorMessage;
 vector<string> consoleHistory;
 string baseDir = "demo";
 asIScriptEngine *engine;
@@ -35,6 +67,24 @@ asIScriptContext *ctx;
 asIScriptFunction *initFunc;
 asIScriptFunction *updateFunc;
 asIScriptFunction *drawFunc;
+
+void errorHandler(string message)
+{
+    printf("Error: %s\n", message.c_str());
+
+    if (ctx)
+    {
+        ctx->Release();
+    }
+
+    if (engine)
+    {
+        engine->Release();
+    }
+
+    error = true;
+    errorMessage.message = message;
+}
 
 void messageCallback(const asSMessageInfo *msg, void *param)
 {
@@ -46,6 +96,12 @@ void messageCallback(const asSMessageInfo *msg, void *param)
         type = "INFO";
 
     printf("%s (%d, %d) : %s : %s\n", msg->section, msg->row, msg->col, type, msg->message);
+
+    errorMessage.type = msg->type;
+    errorMessage.line = msg->row;
+    errorMessage.column = msg->col;
+    errorMessage.section = msg->section;
+    errorMessage.tracelog.push_back(msg->message);
 }
 
 void configureEngine(asIScriptEngine *engine)
@@ -53,6 +109,31 @@ void configureEngine(asIScriptEngine *engine)
     int r;
 
     RegisterStdString(engine);
+
+    RegisterScriptArray(engine, true);
+
+    RegisterStdStringUtils(engine);
+
+    RegisterScriptAny(engine);
+
+    RegisterScriptHandle(engine);
+
+    RegisterScriptWeakRef(engine);
+
+    RegisterScriptDictionary(engine);
+
+    RegisterScriptFile(engine);
+
+    RegisterScriptFileSystem(engine);
+
+    RegisterScriptMath(engine);
+    RegisterScriptMathComplex(engine);
+
+    RegisterScriptGrid(engine);
+
+    RegisterScriptDateTime(engine);
+
+    RegisterExceptionRoutines(engine);
 
     r = engine->SetDefaultNamespace("vd"); assert(r >= 0);
     r = engine->RegisterGlobalFunction("void log(string &in)", asFUNCTION(Api::log), asCALL_CDECL); assert(r >= 0);
@@ -156,21 +237,21 @@ int compileScript(asIScriptEngine *engine, string script)
     r = builder.StartNewModule(engine, 0);
     if (r < 0)
     {
-        printf("Failed to start new module.\n");
+        errorHandler("Failed to start new module.");
         return r;
     }
 
     r = builder.AddSectionFromFile(script.c_str());
     if (r < 0)
     {
-        printf("Failed to add script file.");
+        errorHandler("Failed to add script file.");
         return r;
     }
 
     r = builder.BuildModule();
     if (r < 0)
     {
-        printf("Failed to build the module.");
+        errorHandler("Failed to build the module.");
         return r;
     }
 
@@ -191,36 +272,39 @@ int callFunction(asIScriptContext *ctx, asIScriptFunction *function)
     if (r != asEXECUTION_FINISHED)
     {
         if (r == asEXECUTION_ABORTED)
-            printf("The script was aborted.\n");
+            errorHandler("The script was aborted.\n");
         else if (r == asEXECUTION_EXCEPTION)
         {
-            printf("The script ended with an exception.\n");
-
             asIScriptFunction *func = ctx->GetExceptionFunction();
             printf("func: %s\n", func->GetDeclaration());
             printf("modl: %s\n", func->GetModuleName());
             printf("sect: %s\n", func->GetScriptSectionName());
             printf("line: %d\n", ctx->GetExceptionLineNumber());
             printf("desc: %s\n", ctx->GetExceptionString());
+
+            errorHandler("The script ended with an exception.\n");
+
+            return r;
         }
         else
-            printf("The script ended for an unexpected reason.\n");
-
-        return r;
+        {
+            errorHandler("The script ended for an unexpected reason.\n");
+            return r;
+        }
     }
 
     return 0;
 }
 
-int reload()
+void reload()
 {
     int r;
 
     engine = asCreateScriptEngine();
     if (engine == 0)
     {
-        printf("Failed to create script engine.\n");
-        return -1;
+        errorHandler("Failed to create script engine.");
+        return;
     }
 
     engine->SetMessageCallback(asFUNCTION(messageCallback), 0, asCALL_CDECL);
@@ -230,72 +314,58 @@ int reload()
     r = compileScript(engine, baseDir + "/main.as");
     if (r < 0)
     {
-        engine->Release();
-        return -1;
+        return;
     }
 
     ctx = engine->CreateContext();
     if (ctx == 0)
     {
-        printf("Failed to create the context.\n");
-        engine->Release();
-        return -1;
+        errorHandler("Failed to create the context.");
+        return;
     }
 
     initFunc = getFunction(engine, "void init()");
     if (initFunc == 0)
     {
-        printf("The script must contain an init function!\n");
-        ctx->Release();
-        engine->Release();
-        return -1;
+        errorHandler("The script must contain an init function!");
+        return;
     }
 
     updateFunc = getFunction(engine, "void update(float dt)");
-    if (initFunc == 0)
+    if (updateFunc == 0)
     {
-        printf("The script must contain an update function!\n");
-        ctx->Release();
-        engine->Release();
-        return -1;
+        errorHandler("The script must contain an update function!");
+        return;
     }
 
     drawFunc = getFunction(engine, "void draw()");
-    if (initFunc == 0)
+    if (drawFunc == 0)
     {
-        printf("The script must contain a draw function!\n");
-        ctx->Release();
-        engine->Release();
-        return -1;
+        errorHandler("The script must contain a draw function!");
+        return;
     }
 
     r = ctx->Prepare(initFunc);
     if (r < 0)
     {
-        printf("Failed to prepare the context.\n");
-        ctx->Release();
-        engine->Release();
-        return -1;
+        errorHandler("Failed to prepare the context.");
+        return;
     }
 
     r = callFunction(ctx, initFunc);
     if (r < 0)
     {
-        ctx->Release();
-        engine->Release();
-        return -1;
+        return;
     }
 
-    return 0;
+    error = false;
 }
 
 int main()
 {
     int r;
 
-    r = reload();
-    if (r < 0)
-        return -1;
+    reload();
 
     SetTraceLogLevel(LOG_NONE);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
@@ -335,23 +405,19 @@ int main()
 
         float dt = GetFrameTime();
 
-        r = ctx->Prepare(updateFunc);
-        if (r < 0)
+        if (!error)
         {
-            printf("Failed to prepare the context.\n");
-            ctx->Release();
-            engine->Release();
-            return -1;
-        }
+            r = ctx->Prepare(updateFunc);
+            if (r < 0)
+            {
+                errorHandler("Failed to prepare the context.");
+            }
+            else
+            {
+                ctx->SetArgFloat(0, dt);
 
-        ctx->SetArgFloat(0, dt);
-
-        r = callFunction(ctx, updateFunc);
-        if (r < 0)
-        {
-            ctx->Release();
-            engine->Release();
-            return -1;
+                callFunction(ctx, updateFunc);
+            }
         }
 
         BeginDrawing();
@@ -362,169 +428,184 @@ int main()
 
         ClearBackground(BLACK);
 
-        r = ctx->Prepare(drawFunc);
-        if (r < 0)
+        if (!error)
         {
-            printf("Failed to prepare the context.\n");
-            ctx->Release();
-            engine->Release();
-            return -1;
+            r = ctx->Prepare(drawFunc);
+            if (r < 0)
+            {
+                errorHandler("Failed to prepare the context.\n");
+            }
+            else
+                callFunction(ctx, drawFunc);
         }
-
-        r = callFunction(ctx, drawFunc);
-        if (r < 0)
+        else
         {
-            ctx->Release();
-            engine->Release();
-            return -1;
+            ClearBackground(SKYBLUE);
+            DrawText(errorMessage.message.c_str(), 10, 10, 20, WHITE);
+
+            const char *type = "ERR";
+
+            if (errorMessage.type == asMSGTYPE_WARNING)
+                type = "WARN";
+            else if (errorMessage.type == asMSGTYPE_INFORMATION)
+                type = "INFO";
+
+            DrawText(TextFormat("%s (%d, %d) : %s", errorMessage.section.c_str(), errorMessage.line, errorMessage.column, type), 10, 40, 20, WHITE);
+
+            int y = 0;
+            for (auto &i : errorMessage.tracelog)
+            {
+                DrawText(i.c_str(), 10, 70 + y, 20, WHITE);
+                y += 30;
+            }
         }
 
         EndTextureMode();
 
-/*
-        DrawTexturePro(target.texture, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height },
-                    (Rectangle){ (GetScreenWidth() - ((float)WIDTH*scale))*0.5f, (GetScreenHeight() - ((float)HEIGHT*scale))*0.5f,
-                    (float)WIDTH*scale, (float)HEIGHT*scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
-*/
+        if (mode == MODE_RUNTIME)
+        {
+            DrawTexturePro(target.texture, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height },
+                        (Rectangle){ (GetScreenWidth() - ((float)WIDTH*scale))*0.5f, (GetScreenHeight() - ((float)HEIGHT*scale))*0.5f,
+                        (float)WIDTH*scale, (float)HEIGHT*scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
+        }
 
         rlImGuiBegin();
 
-        ImGui::DockSpaceOverViewport();
-
-/*
-        bool open = true;
-        ImGui::ShowDemoWindow(&open);
-*/
-
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_None);
-
-        rlImGuiImageRect(&target.texture, target.texture.width, target.texture.height, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height});
-        ImGui::End();
-        ImGui::PopStyleVar();
-
-        ImGui::Begin("Console", nullptr, ImGuiWindowFlags_MenuBar);
-
-        if (ImGui::BeginMenuBar())
+        if (mode == MODE_DEV)
         {
-            if (ImGui::BeginMenu("Options"))
+            ImGui::DockSpaceOverViewport();
+
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+            ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_None);
+
+            rlImGuiImageRect(&target.texture, target.texture.width, target.texture.height, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height});
+            ImGui::End();
+            ImGui::PopStyleVar();
+
+            ImGui::Begin("Console", nullptr, ImGuiWindowFlags_MenuBar);
+
+            if (ImGui::BeginMenuBar())
             {
-                if (ImGui::MenuItem("Clear"))
+                if (ImGui::BeginMenu("Options"))
                 {
-                    consoleHistory.clear();
+                    if (ImGui::MenuItem("Clear"))
+                    {
+                        consoleHistory.clear();
+                    }
+
+                    ImGui::EndMenu();
                 }
 
-                ImGui::EndMenu();
+                ImGui::EndMenuBar();
             }
 
-            ImGui::EndMenuBar();
-        }
-
-        for (auto& line : consoleHistory)
-        {
-            ImGui::TextUnformatted(line.c_str());
-        }
-
-        ImGui::End();
-
-        auto cpos = editor.GetCursorPosition();
-        ImGui::Begin("Text Editor", nullptr, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_MenuBar);
-        ImGui::SetWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
-        if (ImGui::BeginMenuBar())
-        {
-            if (ImGui::BeginMenu("File"))
+            for (auto& line : consoleHistory)
             {
-                if (ImGui::MenuItem("Run"))
+                ImGui::TextUnformatted(line.c_str());
+            }
+
+            ImGui::End();
+
+            auto cpos = editor.GetCursorPosition();
+            ImGui::Begin("Text Editor", nullptr, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_MenuBar);
+            ImGui::SetWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+            if (ImGui::BeginMenuBar())
+            {
+                if (ImGui::BeginMenu("File"))
                 {
-                    r = reload();
-                    if (r < 0)
-                        return -1;
+                    if (ImGui::MenuItem("Run"))
+                    {
+                        reload();
+                    }
+
+                    if (ImGui::MenuItem("Save"))
+                    {
+                        string textToSave = editor.GetText();
+
+                        ofstream out(baseDir + "/main.as");
+                        out << textToSave;
+                        out.close();
+                    }
+
+                    if (ImGui::MenuItem("Quit", "Alt-F4"))
+                        break;
+
+                    ImGui::EndMenu();
                 }
 
-                if (ImGui::MenuItem("Save"))
+                if (ImGui::BeginMenu("Edit"))
                 {
-                    string textToSave = editor.GetText();
+                    bool ro = editor.IsReadOnly();
 
-                    ofstream out(baseDir + "/main.as");
-                    out << textToSave;
-                    out.close();
+                    if (ImGui::MenuItem("Read-only mode", nullptr, &ro))
+                        editor.SetReadOnly(ro);
+
+                    ImGui::Separator();
+
+                    if (ImGui::MenuItem("Undo", "ALT-Backspace", nullptr, !ro && editor.CanUndo()))
+                        editor.Undo();
+
+                    if (ImGui::MenuItem("Redo", "Ctrl-Y", nullptr, !ro && editor.CanRedo()))
+                        editor.Redo();
+
+                    ImGui::Separator();
+
+                    if (ImGui::MenuItem("Copy", "Ctrl-C", nullptr, editor.HasSelection()))
+                        editor.Copy();
+
+                    if (ImGui::MenuItem("Cut", "Ctrl-X", nullptr, !ro && editor.HasSelection()))
+                        editor.Cut();
+
+                    if (ImGui::MenuItem("Delete", "Del", nullptr, !ro && editor.HasSelection()))
+                        editor.Delete();
+
+                    if (ImGui::MenuItem("Paste", "Ctrl-V", nullptr, !ro && ImGui::GetClipboardText() != nullptr))
+                        editor.Paste();
+
+                    ImGui::Separator();
+
+                    if (ImGui::MenuItem("Select all", nullptr, nullptr))
+                        editor.SetSelection(TextEditor::Coordinates(), TextEditor::Coordinates(editor.GetTotalLines(), 0));
+
+                    ImGui::EndMenu();
                 }
 
-                if (ImGui::MenuItem("Quit", "Alt-F4"))
-                    break;
+                if (ImGui::BeginMenu("View"))
+                {
+                    if (ImGui::MenuItem("Dark palette"))
+                        editor.SetPalette(TextEditor::GetDarkPalette());
 
-                ImGui::EndMenu();
+                    if (ImGui::MenuItem("Light palette"))
+                        editor.SetPalette(TextEditor::GetLightPalette());
+
+                    if (ImGui::MenuItem("Retro blue palette"))
+                        editor.SetPalette(TextEditor::GetRetroBluePalette());
+
+                    ImGui::EndMenu();
+                }
+
+                ImGui::EndMenuBar();
             }
 
-            if (ImGui::BeginMenu("Edit"))
-            {
-                bool ro = editor.IsReadOnly();
+            ImGui::Text("%6d/%-6d %6d lines  | %s | %s | %s | %s", cpos.mLine + 1, cpos.mColumn + 1, editor.GetTotalLines(),
+                editor.IsOverwrite() ? "Ovr" : "Ins",
+                editor.CanUndo() ? "*" : " ",
+                editor.GetLanguageDefinition().mName.c_str(), baseDir.c_str());
 
-                if (ImGui::MenuItem("Read-only mode", nullptr, &ro))
-                    editor.SetReadOnly(ro);
-
-                ImGui::Separator();
-
-                if (ImGui::MenuItem("Undo", "ALT-Backspace", nullptr, !ro && editor.CanUndo()))
-                    editor.Undo();
-
-                if (ImGui::MenuItem("Redo", "Ctrl-Y", nullptr, !ro && editor.CanRedo()))
-                    editor.Redo();
-
-                ImGui::Separator();
-
-                if (ImGui::MenuItem("Copy", "Ctrl-C", nullptr, editor.HasSelection()))
-                    editor.Copy();
-
-                if (ImGui::MenuItem("Cut", "Ctrl-X", nullptr, !ro && editor.HasSelection()))
-                    editor.Cut();
-
-                if (ImGui::MenuItem("Delete", "Del", nullptr, !ro && editor.HasSelection()))
-                    editor.Delete();
-
-                if (ImGui::MenuItem("Paste", "Ctrl-V", nullptr, !ro && ImGui::GetClipboardText() != nullptr))
-                    editor.Paste();
-
-                ImGui::Separator();
-
-                if (ImGui::MenuItem("Select all", nullptr, nullptr))
-                    editor.SetSelection(TextEditor::Coordinates(), TextEditor::Coordinates(editor.GetTotalLines(), 0));
-
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("View"))
-            {
-                if (ImGui::MenuItem("Dark palette"))
-                    editor.SetPalette(TextEditor::GetDarkPalette());
-
-                if (ImGui::MenuItem("Light palette"))
-                    editor.SetPalette(TextEditor::GetLightPalette());
-
-                if (ImGui::MenuItem("Retro blue palette"))
-                    editor.SetPalette(TextEditor::GetRetroBluePalette());
-
-                ImGui::EndMenu();
-            }
-
-            ImGui::EndMenuBar();
+            editor.Render("TextEditor");
+            ImGui::End();
         }
-
-        ImGui::Text("%6d/%-6d %6d lines  | %s | %s | %s | %s", cpos.mLine + 1, cpos.mColumn + 1, editor.GetTotalLines(),
-            editor.IsOverwrite() ? "Ovr" : "Ins",
-            editor.CanUndo() ? "*" : " ",
-            editor.GetLanguageDefinition().mName.c_str(), baseDir.c_str());
-
-        editor.Render("TextEditor");
-        ImGui::End();
 
         rlImGuiEnd();
 
         EndDrawing();
     }
 
-    ctx->Release();
-    engine->ShutDownAndRelease();
+    if (!error)
+    {
+        ctx->Release();
+        engine->ShutDownAndRelease();
+    }
 
     rlImGuiShutdown();
 

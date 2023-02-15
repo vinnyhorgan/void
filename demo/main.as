@@ -1,6 +1,7 @@
 #include "test.as"
 
 bool showGreeting = false;
+array<int> a = {3, 2, 1};
 
 void init()
 {
@@ -9,6 +10,7 @@ void init()
     vd::Version version = vd::getVersion();
 
     vd::log(vd::toString(version.major));
+    vd::log(vd::toString(a[0]));
 }
 
 void update(float dt)
@@ -25,5 +27,6 @@ void draw()
     {
         vd::graphics::print("Hellooo!", 10, 10);
     }
-}
 
+    vd::graphics::rectangle("line", 100, 100, 100, 100);
+}
