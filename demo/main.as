@@ -30,3 +30,26 @@ void draw()
 
     vd::graphics::rectangle("line", 100, 100, 100, 100);
 }
+
+void filesdropped(array<string> filenames)
+{
+    for (uint i = 0; i < filenames.length(); i++)
+    {
+        vd::log(filenames[i]);
+    }
+}
+
+void focus(bool focus)
+{
+    vd::log("Focus: " + vd::toString(focus));
+}
+
+void resize(int width, int height)
+{
+    vd::log("Resize: " + vd::toString(width) + "x" + vd::toString(height));
+}
+
+void textinput(string text)
+{
+    vd::log("Text input: " + text);
+}

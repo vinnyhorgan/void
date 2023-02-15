@@ -62,11 +62,17 @@ bool error = false;
 Error errorMessage;
 vector<string> consoleHistory;
 string baseDir = "demo";
+bool focus = true;
 asIScriptEngine *engine;
 asIScriptContext *ctx;
 asIScriptFunction *initFunc;
 asIScriptFunction *updateFunc;
 asIScriptFunction *drawFunc;
+asIScriptFunction *filesdroppedFunc;
+asIScriptFunction *focusFunc;
+asIScriptFunction *resizeFunc;
+asIScriptFunction *keypressedFunc;
+asIScriptFunction *textinputFunc;
 
 void errorHandler(string message)
 {
@@ -124,14 +130,14 @@ void configureEngine(asIScriptEngine *engine)
 
     RegisterScriptFile(engine);
 
+    RegisterScriptDateTime(engine);
+
     RegisterScriptFileSystem(engine);
 
     RegisterScriptMath(engine);
     RegisterScriptMathComplex(engine);
 
     RegisterScriptGrid(engine);
-
-    RegisterScriptDateTime(engine);
 
     RegisterExceptionRoutines(engine);
 
@@ -345,6 +351,12 @@ void reload()
         return;
     }
 
+    filesdroppedFunc = getFunction(engine, "void filesdropped(array<string> filenames)");
+    focusFunc = getFunction(engine, "void focus(bool focused)");
+    resizeFunc = getFunction(engine, "void resize(int width, int height)");
+    keypressedFunc = getFunction(engine, "void keypressed(int key)");
+    textinputFunc = getFunction(engine, "void textinput(string text)");
+
     r = ctx->Prepare(initFunc);
     if (r < 0)
     {
@@ -417,6 +429,117 @@ int main()
                 ctx->SetArgFloat(0, dt);
 
                 callFunction(ctx, updateFunc);
+            }
+        }
+
+        if (IsFileDropped())
+        {
+            FilePathList files = LoadDroppedFiles();
+
+            if (filesdroppedFunc != 0)
+            {
+                r = ctx->Prepare(filesdroppedFunc);
+                if (r < 0)
+                {
+                    errorHandler("Failed to prepare the context.");
+                }
+                else
+                {
+                    CScriptArray *array = CScriptArray::Create(engine->GetTypeInfoByDecl("array<string>"), files.count);
+
+                    for (unsigned int i = 0; i < files.count; i++)
+                    {
+                        string filename = files.paths[i];
+                        array->SetValue(i, &filename);
+                    }
+
+                    ctx->SetArgObject(0, array);
+
+                    callFunction(ctx, filesdroppedFunc);
+
+                    UnloadDroppedFiles(files);
+                }
+            }
+        }
+
+        if (focus != IsWindowFocused())
+        {
+            focus = IsWindowFocused();
+
+            if (focusFunc != 0)
+            {
+                r = ctx->Prepare(focusFunc);
+                if (r < 0)
+                {
+                    errorHandler("Failed to prepare the context.");
+                }
+                else
+                {
+                    ctx->SetArgByte(0, focus);
+
+                    callFunction(ctx, focusFunc);
+                }
+            }
+        }
+
+        if (IsWindowResized())
+        {
+            if (resizeFunc != 0)
+            {
+                r = ctx->Prepare(resizeFunc);
+                if (r < 0)
+                {
+                    errorHandler("Failed to prepare the context.");
+                }
+                else
+                {
+                    ctx->SetArgDWord(0, GetScreenWidth());
+                    ctx->SetArgDWord(1, GetScreenHeight());
+
+                    callFunction(ctx, resizeFunc);
+                }
+            }
+        }
+
+        int key = GetKeyPressed();
+
+        if (key != KEY_NULL)
+        {
+            if (keypressedFunc != 0)
+            {
+                r = ctx->Prepare(keypressedFunc);
+                if (r < 0)
+                {
+                    errorHandler("Failed to prepare the context.");
+                }
+                else
+                {
+                    ctx->SetArgDWord(0, key);
+
+                    callFunction(ctx, keypressedFunc);
+                }
+            }
+        }
+
+        int charPressed = GetCharPressed();
+
+        if (charPressed != 0)
+        {
+            if (textinputFunc != 0)
+            {
+                r = ctx->Prepare(textinputFunc);
+                if (r < 0)
+                {
+                    errorHandler("Failed to prepare the context.");
+                }
+                else
+                {
+                    string text = string(1, charPressed);
+
+                    ctx->SetArgObject(0, &text);
+
+                    callFunction(ctx, textinputFunc);
+                }
             }
         }
 
