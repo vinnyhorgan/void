@@ -16,11 +16,8 @@ using namespace std;
 Color currentColor = WHITE;
 map<int, Texture> loadedTextures;
 
-extern vector<string> consoleHistory;
-
 namespace Api
 {
-    // Utils
     void log(string &str)
     {
         printf("%s\n", str.c_str());
@@ -53,72 +50,108 @@ namespace Api
         return version;
     }
 
-    // Graphics
-    void print(string &str, int x, int y)
+    namespace Graphics
     {
-        DrawText(str.c_str(), x, y, 32, WHITE);
-    }
-
-    void rectangle(string &mode, int x, int y, int width, int height)
-    {
-        if (mode == "fill")
+        void print(string &str, int x, int y)
         {
-            DrawRectangle(x, y, width, height, currentColor);
+            DrawText(str.c_str(), x, y, 32, WHITE);
         }
-        else if (mode == "line")
+
+        void rectangle(string &mode, int x, int y, int width, int height)
         {
-            DrawRectangleLines(x, y, width, height, currentColor);
+            if (mode == "fill")
+            {
+                DrawRectangle(x, y, width, height, currentColor);
+            }
+            else if (mode == "line")
+            {
+                DrawRectangleLines(x, y, width, height, currentColor);
+            }
+        }
+
+        Image newImage(string &path)
+        {
+            int id = GetRandomValue(0, 1000000);
+
+            Image newImage;
+
+            newImage.id = id;
+
+            loadedTextures[id] = LoadTexture(path.c_str());
+
+            return newImage;
+        }
+
+        void drawImage(Image image, int x, int y)
+        {
+            DrawTexture(loadedTextures[image.id], x, y, WHITE);
+        }
+
+        void point(int x, int y)
+        {
+            DrawPixel(x, y, currentColor);
         }
     }
 
-    Image newImage(string &path)
+    namespace Math
     {
-        int id = GetRandomValue(0, 1000000);
-
-        Image newImage;
-
-        newImage.id = id;
-
-        loadedTextures[id] = LoadTexture(path.c_str());
-
-        return newImage;
+        float random()
+        {
+            return GetRandomValue(0, 100) / 100.0f;
+        }
     }
 
-    void drawImage(Image image, int x, int y)
+    namespace Mouse
     {
-        DrawTexture(loadedTextures[image.id], x, y, WHITE);
+        Vector2 getPosition()
+        {
+            Vector2 mouse;
+
+            mouse.x = virtualMouse.x;
+            mouse.y = virtualMouse.y;
+
+            return mouse;
+        }
+
+        bool isDown(MouseButton button)
+        {
+            return IsMouseButtonDown(button);
+        }
+
+        bool isPressed(MouseButton button)
+        {
+            return IsMouseButtonPressed(button);
+        }
+
+        bool isReleased(MouseButton button)
+        {
+            return IsMouseButtonReleased(button);
+        }
     }
 
-    // Math
-    float random()
+    namespace Keyboard
     {
-        return GetRandomValue(0, 100) / 100.0f;
+        bool isDown(Key key)
+        {
+            return IsKeyDown(key);
+        }
+
+        bool isPressed(Key key)
+        {
+            return IsKeyPressed(key);
+        }
+
+        bool isReleased(Key key)
+        {
+            return IsKeyReleased(key);
+        }
     }
 
-    float sqrt(float value)
+    namespace Timer
     {
-        return sqrtf(value);
-    }
-
-    // Keyboard
-    bool isDown(int key)
-    {
-        return IsKeyDown(key);
-    }
-
-    bool isPressed(int key)
-    {
-        return IsKeyPressed(key);
-    }
-
-    bool isReleased(int key)
-    {
-        return IsKeyReleased(key);
-    }
-
-    // timer
-    int getFPS()
-    {
-        return GetFPS();
+        int getFPS()
+        {
+            return GetFPS();
+        }
     }
 }

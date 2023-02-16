@@ -1,54 +1,49 @@
 #include "test.as"
 
-vd::graphics::Image a;
-vd::graphics::Image b;
-vd::graphics::Image c;
+class Pixel
+{
+    vd::Vector2 position;
+}
 
-float x = 100;
-float y = 100;
-
-vd::Version version;
+array<Pixel> pixels;
 
 void init()
 {
     hello();
-
-    a = vd::graphics::newImage("assets/test.png");
-    b = vd::graphics::newImage("assets/test.png");
-    c = vd::graphics::newImage("assets/test.png");
 }
 
 void update(float dt)
 {
-    if (vd::keyboard::isDown(vd::keyboard::Key::A))
+    if (vd::mouse::isDown(vd::mouse::MouseButton::Left))
     {
-        x -= 200 * dt;
-    }
-    else if (vd::keyboard::isDown(vd::keyboard::Key::D))
-    {
-        x += 200 * dt;
+        vd::Vector2 mouse = vd::mouse::getPosition();
+
+        Pixel newPixel;
+        newPixel.position = mouse;
+
+        pixels.insertLast(newPixel);
     }
 
-    if (vd::keyboard::isDown(vd::keyboard::Key::W))
+    for (uint i = 0; i < pixels.length(); i++)
     {
-        y -= 200 * dt;
-    }
-    else if (vd::keyboard::isDown(vd::keyboard::Key::S))
-    {
-        y += 200 * dt;
-    }
+        pixels[i].position.y += 1;
 
-    version = vd::getVersion();
-    vd::log("Version: " + vd::toString(version.major) + "." + vd::toString(version.minor) + "." + vd::toString(version.patch));
+        if (pixels[i].position.y > 1000)
+        {
+            pixels.removeAt(i);
+        }
+    }
 }
 
 void draw()
 {
+    vd::Vector2 mouse = vd::mouse::getPosition();
     vd::graphics::print("FPS: " + vd::toString(vd::timer::getFPS()), 10, 10);
+    vd::graphics::print("Mouse: " + vd::toString(int(mouse.x)) + ", " + vd::toString(int(mouse.y)), 10, 50);
+    vd::graphics::print("Pixels: " + vd::toString(pixels.length()), 10, 90);
 
-    vd::graphics::rectangle("line", 100, 100, 100, 100);
-
-    vd::graphics::drawImage(a, x, y);
-    vd::graphics::drawImage(b, 200, 200);
-    vd::graphics::drawImage(c, 300, 300);
+    for (uint i = 0; i < pixels.length(); i++)
+    {
+        vd::graphics::point(int(pixels[i].position.x), int(pixels[i].position.y));
+    }
 }
